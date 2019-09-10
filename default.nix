@@ -12,7 +12,7 @@
 #
 # Then, you can run this:
 #
-# $ nix-build default.nix --argstr reverseDepsOf conduit --arg nixpkgs 'import /some/path/to/your/edited/nixpkgs {}''
+# $ nix-build default.nix --argstr reverseDepsOf conduit --arg nixpkgs 'import /some/path/to/your/edited/nixpkgs {}'
 #
 # This should build all the Haskell packages with dependencies on conduit.
 #
