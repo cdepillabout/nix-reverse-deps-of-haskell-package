@@ -159,7 +159,7 @@ let
   allReverseDepsEnv =
     buildEnv {
       name = "all-reverse-dependencies-of-${reverseDepsOf}-env";
-      paths = reverseDepsList ++ [ allReverseDepsDrv ];
+      paths = reverseDepsList;
     };
 in
 
