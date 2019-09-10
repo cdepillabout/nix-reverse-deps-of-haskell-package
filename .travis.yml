@@ -13,6 +13,7 @@ language: nix
 
 script:
     - nix-build --argstr reverseDepsOf pretty-simple --arg justPrintAllDeps true
+    - cat ./result
     - nix-build --argstr reverseDepsOf pretty-simple
 
 # before_cache:
