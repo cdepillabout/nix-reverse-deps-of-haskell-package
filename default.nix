@@ -78,7 +78,7 @@ let
   # A predicate function that returns either `true` or `false` depending on
   # whether the input Haskell package derivation is marked broken.
   #
-  # Returns `false` in the following circumstances:
+  # Returns `true` in the following circumstances:
   #
   # - the input derivation fails to evaluate
   # - the input derivation is not actually a derivation
@@ -87,7 +87,7 @@ let
   # - the input derivation's `meta.hydraPlatforms` is set to
   #   `lib.platforms.none`.
   #
-  # Returns `true` in all other circumstances.
+  # Returns `false` in all other circumstances.
   isBroken = name: drv:
     let isBrokenRes = isBroken' drv;
     in
