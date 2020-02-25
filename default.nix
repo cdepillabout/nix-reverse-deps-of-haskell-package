@@ -153,16 +153,17 @@ let
   filterReverseDepsOf = name: drv:
     if isBroken name drv
     then false
+    else if !(drv ? getBuildInputs)
+    then /* builtins.trace "no getBuildInputs: ${name}" */ false
     else
-      if !(drv ? getBuildInputs)
-      then /* builtins.trace "no getBuildInputs: ${name}" */ false
-      else
-        let haskBuildInputs = getHaskellBuildInputs drv;
-            compareName = drv: drv.name == haskellPackages.${reverseDepsOf}.name;
-        in
-        if builtins.any compareName haskBuildInputs
-        then /* builtins.trace "has dep on ${reverseDepsOf}: ${name}" */ true
-        else false;
+      let haskBuildInputs = getHaskellBuildInputs drv;
+          compareName = drv: drv.name == haskellPackages.${reverseDepsOf}.name;
+      in
+      if !(builtins.any compareName haskBuildInputs)
+      then /* builtins.trace "has no dep on ${reverseDepsOf}: ${name}" */ false
+      else if builtins.any (drv: isBroken drv.name drv) haskBuildInputs
+      then builtins.trace "has dependencies that cannot be built: ${name}" false
+      else true;
 
   # An attribute set of all Haskell packages with a dependency on
   # `reverseDepsOf`.
