@@ -96,6 +96,8 @@ let
           then "hydraPlatforms none"
           else if (drv.meta.platforms or lib.platforms.all) == lib.platforms.none
           then "platforms none"
+          else if !(lib.elem stdenv.hostPlatform.system (drv.meta.platforms or lib.platforms.all))
+          then "platform not supported"
           else "not broken"
         );
     in
@@ -131,6 +133,8 @@ let
     then /* builtins.trace "hydraPlatforms none: ${name}" */ true
     else if isBrokenRes == "platforms none"
     then /* builtins.trace "platforms none: ${name}" */ true
+    else if isBrokenRes == "platform not supported"
+    then builtins.trace "system platform (${stdenv.hostPlatform.system}) not supported for package: ${name}" true
     else if isBrokenRes == "not broken"
     then false
     else abort "unknown return value from isBroken': ${isBrokenRes}";
