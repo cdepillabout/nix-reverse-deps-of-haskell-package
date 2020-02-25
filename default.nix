@@ -23,7 +23,42 @@
 #
 # This produces a text file with a list of all dependencies of conduit.
 #
-
+# --------------------------------------------------------------------
+#
+# If you would like override a package in the Haskell package set, and then
+# find all dependencies of that package, you can use the following code
+# as a starting point.  The following overrides "random".
+#
+# ```nix
+# let
+#   myHaskellPackageOverlay = self: super: {
+#     haskellPackages = super.haskellPackages.override {
+#       overrides = hself: hsuper: {
+#         random =
+#           let newRandomSrc = builtins.fetchGit {
+#                 url = "https://github.com/idontgetoutmuch/random.git";
+#                 rev = "4bb37cfd588996c55e62ec4f908b8ea7d99a38f6";
+#                 ref = "interface-to-performance";
+#               };
+#           in
+#           # Since cabal2nix has a transitive dependency on random, we need to
+#           # get the callCabal2nix function from the normal haskellPackages that
+#           # is not being overridden.
+#           (import <nixpkgs> {}).haskellPackages.callCabal2nix "random" newRandomSrc { };
+#       };
+#     };
+#   };
+#
+#   nixpkgs = import <nixpkgs> { overlays = [ myHaskellPackageOverlay ]; };
+# in
+# # This example derivation file is assumed to be in the current directory.  "./default.nix" is
+# # the current file you are looking at.
+# import ./default.nix {
+#   reverseDepsOf = "random";
+#   inherit nixpkgs;
+# }
+# ```
+#
 
 { # Find the reverse dependencies of this Haskell package.  This should be a
   # string matching a Haskell package name.
@@ -51,24 +86,19 @@ let
 
   isBroken' = drv:
     let tryEvalRes = builtins.tryEval (
-          if lib.isDerivation drv
-          then
-            if drv ? meta
-            then
-              if !(drv.meta ? broken)
-              then
-                if !(drv.meta ? hydraPlatforms)
-                then "not broken"
-                else
-                  if drv.meta.hydraPlatforms == lib.platforms.none
-                  then "hydraPlatforms none"
-                  else "not broken"
-              else
-                if drv.meta.broken
-                then "broken"
-                else "not broken"
-            else "no meta"
-          else "not drv"
+          if !lib.isDerivation drv
+          then "not drv"
+          else if !(drv ? meta)
+          then "no meta"
+          else if drv.meta.broken or false
+          then "broken"
+          else if (drv.meta.hydraPlatforms or lib.platforms.all) == lib.platforms.none
+          then "hydraPlatforms none"
+          else if (drv.meta.platforms or lib.platforms.all) == lib.platforms.none
+          then "platforms none"
+          else if !(lib.elem stdenv.hostPlatform.system (drv.meta.platforms or lib.platforms.all))
+          then "platform not supported"
+          else "not broken"
         );
     in
     if tryEvalRes.success
@@ -101,6 +131,10 @@ let
     then /* builtins.trace "broken: ${name}" */ true
     else if isBrokenRes == "hydraPlatforms none"
     then /* builtins.trace "hydraPlatforms none: ${name}" */ true
+    else if isBrokenRes == "platforms none"
+    then /* builtins.trace "platforms none: ${name}" */ true
+    else if isBrokenRes == "platform not supported"
+    then builtins.trace "system platform (${stdenv.hostPlatform.system}) not supported for package: ${name}" true
     else if isBrokenRes == "not broken"
     then false
     else abort "unknown return value from isBroken': ${isBrokenRes}";
@@ -119,16 +153,17 @@ let
   filterReverseDepsOf = name: drv:
     if isBroken name drv
     then false
+    else if !(drv ? getBuildInputs)
+    then /* builtins.trace "no getBuildInputs: ${name}" */ false
     else
-      if !(drv ? getBuildInputs)
-      then /* builtins.trace "no getBuildInputs: ${name}" */ false
-      else
-        let haskBuildInputs = getHaskellBuildInputs drv;
-            compareName = drv: drv.name == haskellPackages.${reverseDepsOf}.name;
-        in
-        if builtins.any compareName haskBuildInputs
-        then /* builtins.trace "has dep on ${reverseDepsOf}: ${name}" */ true
-        else false;
+      let haskBuildInputs = getHaskellBuildInputs drv;
+          compareName = drv: drv.name == haskellPackages.${reverseDepsOf}.name;
+      in
+      if !(builtins.any compareName haskBuildInputs)
+      then /* builtins.trace "has no dep on ${reverseDepsOf}: ${name}" */ false
+      else if builtins.any (drv: isBroken drv.name drv) haskBuildInputs
+      then builtins.trace "has dependencies that cannot be built: ${name}" false
+      else true;
 
   # An attribute set of all Haskell packages with a dependency on
   # `reverseDepsOf`.
