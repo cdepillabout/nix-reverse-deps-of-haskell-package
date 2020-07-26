@@ -71,6 +71,7 @@
   #
   # `true` means to only output a text file containing a list of packages.
   justPrintAllDeps ? false
+, allowBroken ? false
 , # This should be nixpkgs pkg set.
   nixpkgs ? import <nixpkgs> {}
 , lib ? nixpkgs.lib
@@ -128,7 +129,7 @@ let
     else if isBrokenRes == "no meta"
     then /* builtins.trace "no meta: ${name}" */ true
     else if isBrokenRes == "broken"
-    then /* builtins.trace "broken: ${name}" */ true
+    then /* builtins.trace "broken: ${name}" */ (if allowBroken then false else true)
     else if isBrokenRes == "hydraPlatforms none"
     then /* builtins.trace "hydraPlatforms none: ${name}" */ true
     else if isBrokenRes == "platforms none"
